@@ -19,10 +19,18 @@ struct ImGui_ImplSlag_Data
 
 struct ImGui_ImplSlag_ViewportData
 {
+    ImGui_ImplSlag_ViewportData()=delete;
+    ImGui_ImplSlag_ViewportData(slag::Swapchain* swap, bool managedOutside)
+    {
+        swapchain = swap;
+        outsideManaged = managedOutside;
+        drawDataArrays = std::vector<slag::Buffer*>(swapchain->backBuffers(), nullptr);
+        drawDataIndexArrays = std::vector<slag::Buffer*>(swapchain->backBuffers(), nullptr);
+    }
     slag::Swapchain* swapchain= nullptr;
     bool outsideManaged = false;
-    std::array<slag::Buffer*,3> drawDataArrays={nullptr, nullptr, nullptr};
-    std::array<slag::Buffer*,3> drawDataIndexArrays{nullptr, nullptr, nullptr};
+    std::vector<slag::Buffer*> drawDataArrays;
+    std::vector<slag::Buffer*> drawDataIndexArrays;
     ~ImGui_ImplSlag_ViewportData()
     {
         if(swapchain && !outsideManaged)
@@ -49,8 +57,9 @@ struct ImGui_ImplSlag_RenderState
     slag::ShaderPipeline* shader = nullptr;
 };
 
+
 // public facing functions
-IMGUI_IMPL_API bool     ImGui_ImplSlag_Init(slag::Swapchain* mainSwapchain, slag::PlatformData platformData, slag::ShaderPipeline* shaderPipeline, slag::Sampler* sampler, slag::Pixels::Format backBufferFormat);
+IMGUI_IMPL_API bool     ImGui_ImplSlag_Init(slag::Swapchain* mainSwapchain, slag::PlatformData platformData, void* (*extractNativeHandle)(ImGuiViewport* fromViewport), slag::ShaderPipeline* shaderPipeline, slag::Sampler* sampler, slag::Pixels::Format backBufferFormat);
 IMGUI_IMPL_API void     ImGui_ImplSlag_Shutdown();
 IMGUI_IMPL_API void     ImGui_ImplSlag_NewFrame(slag::DescriptorPool* framePool);
 IMGUI_IMPL_API void     ImGui_ImplSlag_RenderDrawData(ImDrawData* draw_data,slag::CommandBuffer* commandBuffer);

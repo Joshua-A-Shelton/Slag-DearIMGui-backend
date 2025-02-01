@@ -1,5 +1,8 @@
 #include <iostream>
 #define SDL_MAIN_HANDLED
+#ifdef __linux
+#define SLAG_X11_BACKEND
+#endif
 #include <SDL.h>
 #include <slag/SlagLib.h>
 #include <SDL_syswm.h>
@@ -42,7 +45,26 @@ slag::FrameResources* generateDefaultFrameResources(size_t frameIndex, slag::Swa
 {
     return new DefaultFrameResources();
 }
-
+//this is only an example, it may change depending on with windowing backend
+void* extractNativeWindowHandle(ImGuiViewport* viewport)
+{
+#ifdef _WIN32
+    return viewport->PlatformHandleRaw;
+#elif __linux
+    //SDL backend stores window not as SDL_Window*, but a uint32 id for some reason
+    SDL_Window* window = SDL_GetWindowFromID((intptr_t)(viewport->PlatformHandle));
+    SDL_SysWMinfo wmInfo;
+    SDL_VERSION(&wmInfo.version);
+    SDL_GetWindowWMInfo(window, &wmInfo);
+    return reinterpret_cast<void*>(wmInfo.info.x11.window);
+#else
+    return nullptr;
+#endif
+}
+void debugPrint(std::string& message,slag::SlagInitDetails::DebugLevel debugLevel,int32_t messageID)
+{
+    std::cout <<message<<std::endl;
+}
 int main()
 {
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) != 0)
@@ -50,7 +72,7 @@ int main()
         printf("Error: %s\n", SDL_GetError());
         return -1;
     }
-    if(slag::SlagLib::initialize({.backend = slag::VULKAN})!= true)
+    if(slag::SlagLib::initialize({.backend = slag::VULKAN,.debug=true,.slagDebugHandler=debugPrint})!= true)
     {
         printf("Error: Unable to initialize slag");
         return -1;
@@ -82,7 +104,7 @@ int main()
 
     int w,h;
     SDL_GetWindowSize(window,&w,&h);
-    const slag::Pixels::Format BACK_BUFFER_FORMAT = slag::Pixels::R8G8B8A8_UNORM_SRGB;
+    const slag::Pixels::Format BACK_BUFFER_FORMAT = slag::Pixels::B8G8R8A8_UNORM_SRGB;
     auto swapchain = slag::Swapchain::newSwapchain(pd, w, h, 3, slag::Swapchain::PresentMode::MAILBOX, BACK_BUFFER_FORMAT,generateDefaultFrameResources);
     auto renderQueue = slag::SlagLib::graphicsCard()->graphicsQueue();
     slag::ShaderModule modules[2] =
@@ -105,20 +127,7 @@ int main()
     auto sampler = slag::SamplerBuilder().newSampler();
 
     ImGui_ImplSDL2_InitForOther(window);
-    ImGui_ImplSlag_Init(swapchain,pd,shader,sampler,BACK_BUFFER_FORMAT);
-
-    slag::ShaderModule modules2[2] = {slag::ShaderModule(slag::ShaderStageFlags::VERTEX,"dear-imgui-shaders/flat.vert.spv"),slag::ShaderModule(slag::ShaderStageFlags::FRAGMENT,"dear-imgui-shaders/flat.frag.spv")};
-    auto flatShader = slag::ShaderPipeline::newShaderPipeline(modules2,2,  nullptr, 0, shaderProperties, nullptr, frameBufferDescription);
-    struct Vertex
-    {
-        glm::vec3 position;
-        glm::vec2 uv;
-    };
-    std::vector<Vertex> tverts = {{{ -1.f, -1.f, 0.0f},{0,1}},{{0.f,1.f, 0.0f},{.5,0}},{{1.f, -1.f, 0.0f},{1,1}}};
-    std::vector<uint16_t> tindexes = {0,1,2};
-    slag::Buffer* triangleVerts = slag::Buffer::newBuffer(tverts.data(),tverts.size()*sizeof(Vertex),slag::Buffer::GPU,slag::Buffer::VERTEX_BUFFER);
-    slag::Buffer* triangleIndicies = slag::Buffer::newBuffer(tindexes.data(),tindexes.size()*sizeof(uint16_t),slag::Buffer::GPU,slag::Buffer::INDEX_BUFFER);
-    slag::Texture* defaultTexture = slag::Texture::newTexture("img.png",slag::Pixels::R8G8B8A8_UNORM,1,slag::TextureUsageFlags::SAMPLED_IMAGE,slag::Texture::SHADER_RESOURCE);
+    ImGui_ImplSlag_Init(swapchain,pd,extractNativeWindowHandle,shader,sampler,BACK_BUFFER_FORMAT);
 
     bool keepWindowOpen = true;
     while(keepWindowOpen)
@@ -167,21 +176,12 @@ int main()
             slag::Attachment attachment{.texture=renderBuffer,.layout=slag::Texture::RENDER_TARGET,.clearOnLoad=true,.clear={.color={1.0f,0.0f,0.0f,1.0f}}};
             commandBuffer->beginRendering(&attachment,1, nullptr,{.offset={0,0},.extent={renderBuffer->width(),renderBuffer->height()}});
 
-            size_t offset = 0;
-            size_t size = triangleVerts->size();
-            size_t stride = sizeof(Vertex);
-            commandBuffer->bindGraphicsShader(flatShader);
-            commandBuffer->bindVertexBuffers(0,&triangleVerts,&offset,&size,&stride,1);
-            commandBuffer->bindIndexBuffer(triangleIndicies,slag::Buffer::UINT16,0);
-            auto bundle = descriptorPool->makeBundle(shader->descriptorGroup(0));
-            bundle.setSamplerAndTexture(0,0,defaultTexture,slag::Texture::SHADER_RESOURCE,sampler);
-            commandBuffer->bindGraphicsDescriptorBundle(flatShader,0,bundle);
-            commandBuffer->drawIndexed(3,1,0,0,0);
-
             ImGui::ShowDemoWindow();
 
             ImGui::Render();
             ImGui_ImplSlag_RenderDrawData(ImGui::GetDrawData(),commandBuffer);
+            commandBuffer->endRendering();
+
             commandBuffer->end();
 
             renderQueue->submit(&commandBuffer,1, nullptr,0, nullptr,0,frame);
@@ -194,10 +194,6 @@ int main()
         }
 
     }
-    delete triangleVerts;
-    delete triangleIndicies;
-    delete flatShader;
-    delete defaultTexture;
 
     ImGui_ImplSlag_Shutdown();
     ImGui_ImplSDL2_Shutdown();

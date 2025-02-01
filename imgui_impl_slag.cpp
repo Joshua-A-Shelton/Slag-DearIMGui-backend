@@ -1,6 +1,7 @@
 #include <iostream>
 #include "imgui_impl_slag.h"
 
+void* (*IMGUI_IMPL_SLAG_GET_NATIVE_WINDOW_HANDLE)(ImGuiViewport* fromViewport)=nullptr;
 class ImGuiFrameResources: public slag::FrameResources
 {
 public:
@@ -33,30 +34,32 @@ slag::FrameResources* ImGui_Slag_CreateFrameResources(size_t frameIndex, slag::S
 
 void ImGui_Slag_CreateWindow(ImGuiViewport* viewport)
 {
+    assert(IMGUI_IMPL_SLAG_GET_NATIVE_WINDOW_HANDLE!= nullptr && "Must assign function to extract native window handle from ImGuiViewport in ImGui_ImplSlag_Init!");
     ImGuiIO& io = ImGui::GetIO();
     auto slagData = static_cast<ImGui_ImplSlag_Data*>(io.BackendRendererUserData);
 
-    auto handle = viewport->PlatformHandleRaw;
     auto pd = slagData->platformData;
     slag::PlatformData platformData{};
 
     platformData.platform = pd.platform;
+
     switch (pd.platform)
     {
 
         case slag::PlatformData::WIN_32:
-            platformData.data.win32 = {.hwnd = handle, .hinstance = pd.data.win32.hinstance};
+            platformData.data.win32 = {.hwnd = IMGUI_IMPL_SLAG_GET_NATIVE_WINDOW_HANDLE(viewport), .hinstance = pd.data.win32.hinstance};
             break;
         case slag::PlatformData::X11:
-            platformData.data.x11 = {.window = handle, .display = pd.data.x11.display};
+            platformData.data.x11 = {.window = IMGUI_IMPL_SLAG_GET_NATIVE_WINDOW_HANDLE(viewport), .display = pd.data.x11.display};
             break;
+            //TODO: test this
         case slag::PlatformData::WAYLAND:
-            platformData.data.wayland = {.surface = handle, .display = pd.data.wayland.surface};
+            platformData.data.wayland = {.surface = IMGUI_IMPL_SLAG_GET_NATIVE_WINDOW_HANDLE(viewport), .display = pd.data.wayland.surface};
             break;
     }
 
-    auto viewportData = new ImGui_ImplSlag_ViewportData();
-    viewportData->swapchain = slag::Swapchain::newSwapchain(platformData,viewport->Size.x,viewport->Size.y,3,slag::Swapchain::MAILBOX,slagData->backBufferFormat,ImGui_Slag_CreateFrameResources);
+    auto viewportData = new ImGui_ImplSlag_ViewportData(slag::Swapchain::newSwapchain(platformData,viewport->Size.x,viewport->Size.y,3,slag::Swapchain::MAILBOX,slagData->backBufferFormat,ImGui_Slag_CreateFrameResources),false);
+    viewportData->swapchain->next();
     viewport->RendererUserData = viewportData;
 }
 void ImGui_Slag_DestroyWindow(ImGuiViewport* viewport)
@@ -98,10 +101,9 @@ void ImGui_Slag_RenderWindow(ImGuiViewport* viewport, void* unknown)
 
         slag::Attachment attachment{.texture=renderBuffer,.layout=slag::Texture::RENDER_TARGET,.clearOnLoad=true,.clear={.color={0.0f,0.0f,0.0f,1.0f}}};
         commandBuffer->beginRendering(&attachment,1, nullptr,{.offset={0,0},.extent={renderBuffer->width(),renderBuffer->height()}});
-        commandBuffer->endRendering();
 
         ImGui_ImplSlag_RenderDrawData(viewport->DrawData,commandBuffer);
-
+        commandBuffer->endRendering();
         commandBuffer->insertBarrier(
                 {.texture=frame->backBuffer(),
                         .oldLayout=slag::Texture::RENDER_TARGET,
@@ -123,7 +125,7 @@ void ImGui_Slag_SwapBuffers(ImGuiViewport* viewport, void* unknown)
     auto viewportData = static_cast<ImGui_ImplSlag_ViewportData*>(viewport->RendererUserData);
     viewportData->swapchain->next();
 }
-bool ImGui_ImplSlag_Init(slag::Swapchain* mainSwapchain, slag::PlatformData platformData, slag::ShaderPipeline* shaderPipeline, slag::Sampler* sampler, slag::Pixels::Format backBufferFormat)
+bool ImGui_ImplSlag_Init(slag::Swapchain* mainSwapchain, slag::PlatformData platformData, void* (*extractNativeHandle)(ImGuiViewport* fromViewport), slag::ShaderPipeline* shaderPipeline, slag::Sampler* sampler, slag::Pixels::Format backBufferFormat)
 {
     //set backend data
     ImGuiIO& io = ImGui::GetIO();
@@ -145,9 +147,7 @@ bool ImGui_ImplSlag_Init(slag::Swapchain* mainSwapchain, slag::PlatformData plat
     size_t upload_size = width * height * 4 * sizeof(char);
     backendData->fontsTexture = slag::Texture::newTexture(pixels,slag::Pixels::R8G8B8A8_UNORM,width,height,1,slag::TextureUsageFlags::SAMPLED_IMAGE,slag::Texture::SHADER_RESOURCE);
 
-    auto viewportData = new ImGui_ImplSlag_ViewportData();
-    viewportData->swapchain = mainSwapchain;
-    viewportData->outsideManaged = true;
+    auto viewportData = new ImGui_ImplSlag_ViewportData(mainSwapchain, true);
 
     auto mainViewport = ImGui::GetMainViewport();
     mainViewport->RendererUserData = viewportData;
@@ -158,6 +158,8 @@ bool ImGui_ImplSlag_Init(slag::Swapchain* mainSwapchain, slag::PlatformData plat
     platformIo.Renderer_SetWindowSize = ImGui_Slag_SetWindowSize;
     platformIo.Renderer_RenderWindow = ImGui_Slag_RenderWindow;
     platformIo.Renderer_SwapBuffers = ImGui_Slag_SwapBuffers;
+
+    IMGUI_IMPL_SLAG_GET_NATIVE_WINDOW_HANDLE = extractNativeHandle;
 
     return true;
 }
@@ -236,9 +238,6 @@ void ImGui_ImplSlag_RenderDrawData(ImDrawData* draw_data, slag::CommandBuffer* c
     {
         if(rendererViewportData->drawDataArrays[currentIndex] == nullptr)
         {
-            //delete existing arrays
-            delete rendererViewportData->drawDataArrays[currentIndex];
-            delete rendererViewportData->drawDataIndexArrays[currentIndex];
             //create new arrays that will fit the data
             rendererViewportData->drawDataArrays[currentIndex]= slag::Buffer::newBuffer(draw_data->TotalVtxCount*sizeof(ImDrawVert),slag::Buffer::CPU_AND_GPU,slag::Buffer::DATA_BUFFER);
             rendererViewportData->drawDataIndexArrays[currentIndex]= slag::Buffer::newBuffer(draw_data->TotalIdxCount*sizeof(ImDrawIdx),slag::Buffer::CPU_AND_GPU,slag::Buffer::DATA_BUFFER);
