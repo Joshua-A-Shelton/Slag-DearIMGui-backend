@@ -107,27 +107,11 @@ int main()
     const slag::Pixels::Format BACK_BUFFER_FORMAT = slag::Pixels::B8G8R8A8_UNORM_SRGB;
     auto swapchain = slag::Swapchain::newSwapchain(pd, w, h, 3, slag::Swapchain::PresentMode::MAILBOX, BACK_BUFFER_FORMAT,generateDefaultFrameResources);
     auto renderQueue = slag::SlagLib::graphicsCard()->graphicsQueue();
-    slag::ShaderModule modules[2] =
-    {
-        slag::ShaderModule(slag::ShaderStageFlags::VERTEX,"dear-imgui-shaders/dear-imgui.vert.spv"),
-        slag::ShaderModule(slag::ShaderStageFlags::FRAGMENT,"dear-imgui-shaders/dear-imgui.frag.spv")
-    };
 
-    slag::ShaderProperties shaderProperties;
-
-    slag::VertexDescription vertexDescription(1);
-    vertexDescription.add(slag::GraphicsTypes::VECTOR2, offsetof(ImDrawVert,pos),0);
-    vertexDescription.add(slag::GraphicsTypes::VECTOR2, offsetof(ImDrawVert,uv),0);
-    vertexDescription.add(slag::GraphicsTypes::UNSIGNED_INTEGER, offsetof(ImDrawVert,col),0);
-
-    slag::FrameBufferDescription frameBufferDescription;
-    frameBufferDescription.addColorTarget(BACK_BUFFER_FORMAT);
-
-    auto shader = slag::ShaderPipeline::newShaderPipeline(modules,2, nullptr,0,shaderProperties,&vertexDescription,frameBufferDescription);
     auto sampler = slag::SamplerBuilder().newSampler();
 
     ImGui_ImplSDL2_InitForOther(window);
-    ImGui_ImplSlag_Init(swapchain,pd,extractNativeWindowHandle,shader,sampler,BACK_BUFFER_FORMAT);
+    ImGui_ImplSlag_Init(swapchain,pd,extractNativeWindowHandle,sampler,BACK_BUFFER_FORMAT);
 
     bool keepWindowOpen = true;
     while(keepWindowOpen)
@@ -229,7 +213,6 @@ int main()
     ImGui::DestroyContext();
 
     delete sampler;
-    delete shader;
     delete swapchain;
 
     slag::SlagLib::cleanup();

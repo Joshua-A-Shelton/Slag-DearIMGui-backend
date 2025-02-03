@@ -59,7 +59,7 @@ struct ImGui_ImplSlag_RenderState
 
 
 // public facing functions
-IMGUI_IMPL_API bool     ImGui_ImplSlag_Init(slag::Swapchain* mainSwapchain, slag::PlatformData platformData, void* (*extractNativeHandle)(ImGuiViewport* fromViewport), slag::ShaderPipeline* shaderPipeline, slag::Sampler* sampler, slag::Pixels::Format backBufferFormat);
+IMGUI_IMPL_API bool     ImGui_ImplSlag_Init(slag::Swapchain* mainSwapchain, slag::PlatformData platformData, void* (*extractNativeHandle)(ImGuiViewport* fromViewport), slag::Sampler* sampler, slag::Pixels::Format backBufferFormat);
 IMGUI_IMPL_API void     ImGui_ImplSlag_Shutdown();
 IMGUI_IMPL_API void     ImGui_ImplSlag_NewFrame(slag::DescriptorPool* framePool);
 IMGUI_IMPL_API void     ImGui_ImplSlag_RenderDrawData(ImDrawData* draw_data,slag::CommandBuffer* commandBuffer);
