@@ -144,10 +144,14 @@ int main()
                     keepWindowOpen=false;
                     break;
                 case SDL_WINDOWEVENT:
-                    if (e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED)
+                    if (e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED || e.window.event == SDL_WINDOWEVENT_RESTORED)
                     {
                         SDL_GetWindowSize(window, &width, &height);
                         swapchain->resize(width,height);
+                    }
+                    else if(e.window.event == SDL_WINDOWEVENT_MINIMIZED)
+                    {
+                        swapchain->resize(0,0);
                     }
                     break;
 
@@ -173,6 +177,18 @@ int main()
             commandBuffer->setViewPort(0,0,frame->backBuffer()->width(),frame->backBuffer()->height(),1,0);
             commandBuffer->setScissors({{0,0},{frame->backBuffer()->width(),frame->backBuffer()->height()}});
 
+            commandBuffer->insertBarrier(
+                    slag::ImageBarrier
+                    {
+                        .texture=renderBuffer,
+                        .oldLayout=slag::Texture::UNDEFINED,
+                        .newLayout=slag::Texture::RENDER_TARGET,
+                        .accessBefore=slag::BarrierAccessFlags::NONE,
+                        .accessAfter=slag::BarrierAccessFlags::SHADER_WRITE,
+                        .syncBefore=slag::PipelineStageFlags::NONE,
+                        .syncAfter=slag::PipelineStageFlags::FRAGMENT_SHADER
+                    });
+
             slag::Attachment attachment{.texture=renderBuffer,.layout=slag::Texture::RENDER_TARGET,.clearOnLoad=true,.clear={.color={1.0f,0.0f,0.0f,1.0f}}};
             commandBuffer->beginRendering(&attachment,1, nullptr,{.offset={0,0},.extent={renderBuffer->width(),renderBuffer->height()}});
 
@@ -181,17 +197,28 @@ int main()
             ImGui::Render();
             ImGui_ImplSlag_RenderDrawData(ImGui::GetDrawData(),commandBuffer);
             commandBuffer->endRendering();
-
+            commandBuffer->insertBarrier(
+                slag::ImageBarrier
+                        {
+                            .texture=renderBuffer,
+                            .oldLayout=slag::Texture::RENDER_TARGET,
+                            .newLayout=slag::Texture::PRESENT,
+                            .accessBefore=slag::BarrierAccessFlags::SHADER_WRITE,
+                            .accessAfter=slag::BarrierAccessFlags::NONE,
+                            .syncBefore=slag::PipelineStageFlags::FRAGMENT_SHADER,
+                            .syncAfter=slag::PipelineStageFlags::NONE
+                        });
             commandBuffer->end();
+            if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+            {
+                ImGui::UpdatePlatformWindows();
+                ImGui::RenderPlatformWindowsDefault();
+            }
 
             renderQueue->submit(&commandBuffer,1, nullptr,0, nullptr,0,frame);
 
         }
-        if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
-        {
-            ImGui::UpdatePlatformWindows();
-            ImGui::RenderPlatformWindowsDefault();
-        }
+
 
     }
 

@@ -239,19 +239,19 @@ void ImGui_ImplSlag_RenderDrawData(ImDrawData* draw_data, slag::CommandBuffer* c
         if(rendererViewportData->drawDataArrays[currentIndex] == nullptr)
         {
             //create new arrays that will fit the data
-            rendererViewportData->drawDataArrays[currentIndex]= slag::Buffer::newBuffer(draw_data->TotalVtxCount*sizeof(ImDrawVert),slag::Buffer::CPU_AND_GPU,slag::Buffer::DATA_BUFFER);
-            rendererViewportData->drawDataIndexArrays[currentIndex]= slag::Buffer::newBuffer(draw_data->TotalIdxCount*sizeof(ImDrawIdx),slag::Buffer::CPU_AND_GPU,slag::Buffer::DATA_BUFFER);
+            rendererViewportData->drawDataArrays[currentIndex]= slag::Buffer::newBuffer(draw_data->TotalVtxCount*sizeof(ImDrawVert),slag::Buffer::CPU_AND_GPU,slag::Buffer::VERTEX_BUFFER);
+            rendererViewportData->drawDataIndexArrays[currentIndex]= slag::Buffer::newBuffer(draw_data->TotalIdxCount*sizeof(ImDrawIdx),slag::Buffer::CPU_AND_GPU,slag::Buffer::INDEX_BUFFER);
         }
 
         if( rendererViewportData->drawDataArrays[currentIndex]->size()< draw_data->TotalVtxCount*sizeof(ImDrawVert))
         {
             delete rendererViewportData->drawDataArrays[currentIndex];
-            rendererViewportData->drawDataArrays[currentIndex]= slag::Buffer::newBuffer(draw_data->TotalVtxCount*sizeof(ImDrawVert),slag::Buffer::CPU_AND_GPU,slag::Buffer::DATA_BUFFER);
+            rendererViewportData->drawDataArrays[currentIndex]= slag::Buffer::newBuffer(draw_data->TotalVtxCount*sizeof(ImDrawVert),slag::Buffer::CPU_AND_GPU,slag::Buffer::VERTEX_BUFFER);
         }
         if(rendererViewportData->drawDataIndexArrays[currentIndex]->size()< draw_data->TotalIdxCount*sizeof(ImDrawIdx))
         {
             delete rendererViewportData->drawDataIndexArrays[currentIndex];
-            rendererViewportData->drawDataIndexArrays[currentIndex]= slag::Buffer::newBuffer(draw_data->TotalIdxCount*sizeof(ImDrawIdx),slag::Buffer::CPU_AND_GPU,slag::Buffer::DATA_BUFFER);
+            rendererViewportData->drawDataIndexArrays[currentIndex]= slag::Buffer::newBuffer(draw_data->TotalIdxCount*sizeof(ImDrawIdx),slag::Buffer::CPU_AND_GPU,slag::Buffer::INDEX_BUFFER);
         }
         //copy draw data into buffers
         auto vertexBuffer = rendererViewportData->drawDataArrays[currentIndex];
