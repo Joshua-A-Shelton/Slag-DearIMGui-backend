@@ -144,6 +144,9 @@ int main()
                     keepWindowOpen=false;
                     break;
                 case SDL_WINDOWEVENT:
+                    if (e.window.event == SDL_WINDOWEVENT_CLOSE && e.window.windowID == SDL_GetWindowID(window)) {
+                        keepWindowOpen = false; // Or manually trigger SDL_QUIT
+                    }
                     if (e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED || e.window.event == SDL_WINDOWEVENT_RESTORED)
                     {
                         SDL_GetWindowSize(window, &width, &height);
@@ -154,7 +157,6 @@ int main()
                         swapchain->resize(0,0);
                     }
                     break;
-
             }
 
         }
