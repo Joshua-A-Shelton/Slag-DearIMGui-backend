@@ -480,12 +480,15 @@ void ImGui_ImplSlag_RenderDrawData(ImDrawData* draw_data, slag::CommandBuffer* c
             rendererViewportData->drawDataIndexArrays[currentIndex]= slag::Buffer::newBuffer(draw_data->TotalIdxCount*sizeof(ImDrawIdx),slag::Buffer::CPU_AND_GPU,slag::Buffer::INDEX_BUFFER);
         }
 
-        if( rendererViewportData->drawDataArrays[currentIndex]->size()< draw_data->TotalVtxCount*sizeof(ImDrawVert))
+        if(rendererViewportData->drawDataArrays[currentIndex]->size()< draw_data->TotalVtxCount*sizeof(ImDrawVert) ||
+            rendererViewportData->drawDataArrays[currentIndex]->size()>= draw_data->TotalVtxCount*sizeof(ImDrawVert)*1.75
+        )
         {
             delete rendererViewportData->drawDataArrays[currentIndex];
             rendererViewportData->drawDataArrays[currentIndex]= slag::Buffer::newBuffer(draw_data->TotalVtxCount*sizeof(ImDrawVert),slag::Buffer::CPU_AND_GPU,slag::Buffer::VERTEX_BUFFER);
         }
-        if(rendererViewportData->drawDataIndexArrays[currentIndex]->size()< draw_data->TotalIdxCount*sizeof(ImDrawIdx))
+        if(rendererViewportData->drawDataIndexArrays[currentIndex]->size()< draw_data->TotalIdxCount*sizeof(ImDrawIdx) ||
+            rendererViewportData->drawDataIndexArrays[currentIndex]->size()>= draw_data->TotalIdxCount*sizeof(ImDrawIdx)*1.75)
         {
             delete rendererViewportData->drawDataIndexArrays[currentIndex];
             rendererViewportData->drawDataIndexArrays[currentIndex]= slag::Buffer::newBuffer(draw_data->TotalIdxCount*sizeof(ImDrawIdx),slag::Buffer::CPU_AND_GPU,slag::Buffer::INDEX_BUFFER);
