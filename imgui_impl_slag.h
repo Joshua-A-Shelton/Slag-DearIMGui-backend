@@ -20,7 +20,7 @@
 #define IMGUI_IMPL_SLAG_H
 
 #include <slag/SlagLib.h>
-#include <imgui.h>
+#include "imgui.h"
 #include <array>
 
 struct ImGui_ImplSlag_Data
